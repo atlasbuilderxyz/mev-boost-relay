@@ -85,6 +85,7 @@ func DeliveredPayloadEntryToBidTraceV2JSON(payload *DeliveredPayloadEntry) commo
 		Value:                payload.Value,
 		NumTx:                payload.NumTx,
 		BlockNumber:          payload.BlockNumber,
+		ProposerIndex:        payload.ProposerIndex,
 	}
 }
 

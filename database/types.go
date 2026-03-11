@@ -186,8 +186,9 @@ type DeliveredPayloadEntry struct {
 
 	SignedBlindedBeaconBlock sql.NullString `db:"signed_blinded_beacon_block"`
 
-	Slot  uint64 `db:"slot"`
-	Epoch uint64 `db:"epoch"`
+	Slot          uint64 `db:"slot"`
+	Epoch         uint64 `db:"epoch"`
+	ProposerIndex uint64 `db:"proposer_index"`
 
 	BuilderPubkey        string `db:"builder_pubkey"`
 	ProposerPubkey       string `db:"proposer_pubkey"`

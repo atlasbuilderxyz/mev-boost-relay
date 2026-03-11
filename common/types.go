@@ -303,6 +303,7 @@ type BidTraceV2JSON struct {
 	Value                string `json:"value"`
 	NumTx                uint64 `json:"num_tx,string"`
 	BlockNumber          uint64 `json:"block_number,string"`
+	ProposerIndex        uint64 `json:"proposer_index,string"`
 }
 
 func (b BidTraceV2) MarshalJSON() ([]byte, error) {
@@ -355,6 +356,7 @@ func (b *BidTraceV2JSON) CSVHeader() []string {
 		"value",
 		"num_tx",
 		"block_number",
+		"proposer_index",
 	}
 }
 
@@ -371,6 +373,7 @@ func (b *BidTraceV2JSON) ToCSVRecord() []string {
 		b.Value,
 		strconv.FormatUint(b.NumTx, 10),
 		strconv.FormatUint(b.BlockNumber, 10),
+		strconv.FormatUint(b.ProposerIndex, 10),
 	}
 }
 
