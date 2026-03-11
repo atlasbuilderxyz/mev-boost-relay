@@ -82,6 +82,10 @@ func (db MockDB) GetNumDeliveredPayloads() (uint64, error) {
 	return 0, nil
 }
 
+func (db MockDB) GetDeliveredPayloadStats() (count uint64, totalValue string, totalTxs uint64, err error) {
+	return 0, "0", 0, nil
+}
+
 func (db MockDB) GetBuilderSubmissions(filters GetBuilderSubmissionsFilters) ([]*BuilderBlockSubmissionEntry, error) {
 	return nil, nil
 }

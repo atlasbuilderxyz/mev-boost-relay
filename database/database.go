@@ -39,6 +39,7 @@ type IDatabaseService interface {
 
 	SaveDeliveredPayload(bidTrace *common.BidTraceV2WithBlobFields, signedBlindedBeaconBlock *common.VersionedSignedBlindedBeaconBlock, signedAt time.Time, publishMs, proposerIndex uint64) error
 	GetNumDeliveredPayloads() (uint64, error)
+	GetDeliveredPayloadStats() (count uint64, totalValue string, totalTxs uint64, err error)
 	GetRecentDeliveredPayloads(filters GetPayloadsFilters) ([]*DeliveredPayloadEntry, error)
 	GetDeliveredPayloads(idFirst, idLast uint64) (entries []*DeliveredPayloadEntry, err error)
 
@@ -421,6 +422,12 @@ func (s *DatabaseService) GetNumDeliveredPayloads() (uint64, error) {
 	var count uint64
 	err := s.DB.QueryRow("SELECT COUNT(*) FROM " + vars.TableDeliveredPayload).Scan(&count)
 	return count, err
+}
+
+func (s *DatabaseService) GetDeliveredPayloadStats() (count uint64, totalValue string, totalTxs uint64, err error) {
+	query := `SELECT COUNT(*), COALESCE(SUM(value), 0)::text, COALESCE(SUM(num_tx), 0) FROM ` + vars.TableDeliveredPayload
+	err = s.DB.QueryRow(query).Scan(&count, &totalValue, &totalTxs)
+	return count, totalValue, totalTxs, err
 }
 
 func (s *DatabaseService) GetBuilderSubmissions(filters GetBuilderSubmissionsFilters) ([]*BuilderBlockSubmissionEntry, error) {

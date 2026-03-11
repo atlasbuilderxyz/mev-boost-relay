@@ -90,6 +90,7 @@ var (
 	pathDataProposerPayloadDelivered = "/relay/v1/data/bidtraces/proposer_payload_delivered"
 	pathDataBuilderBidsReceived      = "/relay/v1/data/bidtraces/builder_blocks_received"
 	pathDataValidatorRegistration    = "/relay/v1/data/validator_registration"
+	pathDataStats                    = "/relay/v1/data/stats"
 
 	// Internal API
 	pathInternalBuilderStatus     = "/internal/v1/builder/{pubkey:0x[a-fA-F0-9]+}"
@@ -386,6 +387,7 @@ func (api *RelayAPI) getRouter() http.Handler {
 		r.HandleFunc(pathDataProposerPayloadDelivered, api.handleDataProposerPayloadDelivered).Methods(http.MethodGet)
 		r.HandleFunc(pathDataBuilderBidsReceived, api.handleDataBuilderBidsReceived).Methods(http.MethodGet)
 		r.HandleFunc(pathDataValidatorRegistration, api.handleDataValidatorRegistration).Methods(http.MethodGet)
+		r.HandleFunc(pathDataStats, api.handleDataStats).Methods(http.MethodGet)
 	}
 
 	// /internal/...
@@ -3027,6 +3029,34 @@ func (api *RelayAPI) handleDataBuilderBidsReceived(w http.ResponseWriter, req *h
 	}
 
 	api.RespondOK(w, response)
+}
+
+func (api *RelayAPI) handleDataStats(w http.ResponseWriter, req *http.Request) {
+	count, totalValue, totalTxs, err := api.db.GetDeliveredPayloadStats()
+	if err != nil {
+		api.log.WithError(err).Error("error getting delivered payload stats")
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	numValidators, err := api.db.NumRegisteredValidators()
+	if err != nil {
+		api.log.WithError(err).Error("error getting registered validator count")
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	api.RespondOK(w, struct {
+		TotalBlocksDelivered uint64 `json:"total_blocks_delivered"`
+		TotalValue           string `json:"total_value"`
+		TotalTransactions    uint64 `json:"total_transactions"`
+		RegisteredValidators uint64 `json:"registered_validators"`
+	}{
+		TotalBlocksDelivered: count,
+		TotalValue:           totalValue,
+		TotalTransactions:    totalTxs,
+		RegisteredValidators: numValidators,
+	})
 }
 
 func (api *RelayAPI) handleDataValidatorRegistration(w http.ResponseWriter, req *http.Request) {
