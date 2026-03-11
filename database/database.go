@@ -114,9 +114,9 @@ func (s *DatabaseService) Close() error {
 	return s.DB.Close()
 }
 
-// NumRegisteredValidators returns the number of unique pubkeys that have registered
+// NumRegisteredValidators returns the number of unique pubkeys actively running mev-boost (registered within the last 10 minutes)
 func (s *DatabaseService) NumRegisteredValidators() (count uint64, err error) {
-	query := `SELECT COUNT(*) FROM (SELECT DISTINCT pubkey FROM ` + vars.TableValidatorRegistration + `) AS temp;`
+	query := `SELECT COUNT(DISTINCT pubkey) FROM ` + vars.TableValidatorRegistration + ` WHERE inserted_at > NOW() - INTERVAL '10 minutes';`
 	row := s.DB.QueryRow(query)
 	err = row.Scan(&count)
 	return count, err
