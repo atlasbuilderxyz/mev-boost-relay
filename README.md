@@ -4,15 +4,11 @@
 [![Test status](https://github.com/flashbots/mev-boost-relay/workflows/Checks/badge.svg)](https://github.com/flashbots/mev-boost-relay/actions?query=workflow%3A%22Checks%22)
 [![Docker hub](https://badgen.net/docker/size/flashbots/mev-boost-relay?icon=docker&label=image)](https://hub.docker.com/r/flashbots/mev-boost-relay/tags)
 
-MEV-Boost Relay for Ethereum proposer/builder separation (PBS).
+MEV-Boost Relay for PulseChain proposer/builder separation (PBS).
 
 Currently live at:
 
-* [boost-relay.flashbots.net](https://boost-relay.flashbots.net) (also on [Sepolia](https://boost-relay-sepolia.flashbots.net), [Holesky](https://boost-relay-holesky.flashbots.net) and [Hoodi](https://boost-relay-hoodi.flashbots.net))
-* [relay.ultrasound.money](https://relay.ultrasound.money), [agnostic-relay.net](https://agnostic-relay.net), bloXroute relays ([light fork](https://github.com/bloXroute-Labs/mev-relay))
-* [mainnet.aestus.live](https://mainnet.aestus.live), [relay.edennetwork.io/info](https://relay.edennetwork.io/info), [mainnet-relay.securerpc.com](https://mainnet-relay.securerpc.com)
-
-Alternatives (not audited or endorsed): [blocknative/dreamboat](https://github.com/blocknative/dreamboat), [manifold/mev-freelay](https://github.com/manifoldfinance/mev-freelay)
+* [boost-relay.atlasbuilder.xyz](https://boost-relay.atlasbuilder.xyz)
 
 ### See also
 
@@ -95,7 +91,6 @@ docker-compose up
 Note: docker-compose also runs an Adminer (a web frontend for Postgres) on http://localhost:8093/?username=postgres (db: `postgres`, username: `postgres`, password: `postgres`)
 
 Now start the services:
-
 ```bash
 # The housekeeper sets up the validators, and does various housekeeping
 go run . housekeeper --network sepolia --db postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
@@ -216,7 +211,6 @@ Here's an example systemd config:
 
 <details>
 <summary><code>/etc/systemd/system/geth.service</code></summary>
-
 ```ini
 [Unit]
 Description=mev-boost
@@ -283,7 +277,6 @@ Here's an example Lighthouse systemd config:
 
 <details>
 <summary><code>/etc/systemd/system/lighthouse.service</code></summary>
-
 ```ini
 [Unit]
 Description=Lighthouse
@@ -328,7 +321,6 @@ Here's an example Prysm systemd config:
 
 <details>
 <summary><code>/etc/systemd/system/prysm.service</code></summary>
-
 ```ini
 [Unit]
 Description=Prysm
