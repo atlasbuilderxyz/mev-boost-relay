@@ -1421,8 +1421,23 @@ func (api *RelayAPI) innerHandleGetPayload(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	// Get the optional consensus version
+	// Get the optional consensus version; infer from current slot if missing
 	proposerEthConsensusVersion := req.Header.Get(HeaderEthConsensusVersion)
+	if proposerEthConsensusVersion == "" {
+		fork := api.getForkFromSlot(api.headSlot.Load())
+		switch fork {
+		case spec.DataVersionBellatrix:
+			proposerEthConsensusVersion = common.EthConsensusVersionBellatrix
+		case spec.DataVersionCapella:
+			proposerEthConsensusVersion = common.EthConsensusVersionCapella
+		case spec.DataVersionDeneb:
+			proposerEthConsensusVersion = common.EthConsensusVersionDeneb
+		case spec.DataVersionElectra:
+			proposerEthConsensusVersion = common.EthConsensusVersionElectra
+		case spec.DataVersionFulu:
+			proposerEthConsensusVersion = common.EthConsensusVersionFulu
+		}
+	}
 
 	ua := req.UserAgent()
 	headSlot := api.headSlot.Load()
