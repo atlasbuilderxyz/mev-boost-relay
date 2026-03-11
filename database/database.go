@@ -22,6 +22,7 @@ import (
 
 type IDatabaseService interface {
 	NumRegisteredValidators() (count uint64, err error)
+	TouchValidatorRegistrations(pubkeys []string) error
 	SaveValidatorRegistration(entry ValidatorRegistrationEntry) error
 	GetLatestValidatorRegistrations(timestampOnly bool) ([]*ValidatorRegistrationEntry, error)
 	GetValidatorRegistration(pubkey string) (*ValidatorRegistrationEntry, error)
@@ -125,6 +126,22 @@ func (s *DatabaseService) NumValidatorRegistrationRows() (count uint64, err erro
 	row := s.DB.QueryRow(query)
 	err = row.Scan(&count)
 	return count, err
+}
+
+// TouchValidatorRegistrations batch-updates inserted_at on the latest row for each pubkey
+func (s *DatabaseService) TouchValidatorRegistrations(pubkeys []string) error {
+	if len(pubkeys) == 0 {
+		return nil
+	}
+	query := `UPDATE ` + vars.TableValidatorRegistration + ` SET inserted_at = NOW() WHERE id IN (
+		SELECT DISTINCT ON (pubkey) id FROM ` + vars.TableValidatorRegistration + ` WHERE pubkey IN (?) ORDER BY pubkey, timestamp DESC
+	)`
+	q, args, err := sqlx.In(query, pubkeys)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(s.DB.Rebind(q), args...)
+	return err
 }
 
 func (s *DatabaseService) SaveValidatorRegistration(entry ValidatorRegistrationEntry) error {

@@ -216,6 +216,11 @@ func (ds *Datastore) saveValidatorRegistrationInLocalCache(entry builderApiV1.Va
 	ds.validatorRegistrationLock.Unlock()
 }
 
+// TouchValidatorRegistrations batch-updates inserted_at on the latest rows for the given pubkeys
+func (ds *Datastore) TouchValidatorRegistrations(pubkeys []string) error {
+	return ds.db.TouchValidatorRegistrations(pubkeys)
+}
+
 // SaveValidatorRegistration saves a validator registration into local cache, Redis and the database
 // Note that this function is called synchronously, so no need to lock the cache
 func (ds *Datastore) SaveValidatorRegistration(entry builderApiV1.SignedValidatorRegistration) error {

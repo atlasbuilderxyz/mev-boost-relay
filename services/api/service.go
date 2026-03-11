@@ -1073,6 +1073,7 @@ func (api *RelayAPI) handleRegisterValidator(w http.ResponseWriter, req *http.Re
 	//
 	numTotalRegistrations := 0
 	var signedValidatorRegistrations []*builderApiV1.SignedValidatorRegistration
+	var touchedPubkeys []string
 
 	if proposerContentType == common.ApplicationOctetStream {
 		// Registrations in SSZ
@@ -1087,7 +1088,7 @@ func (api *RelayAPI) handleRegisterValidator(w http.ResponseWriter, req *http.Re
 		}
 
 		numTotalRegistrations = len(resp.Registrations)
-		signedValidatorRegistrations, userErr, err = api.processValidatorRegistrationsSSZ(resp.Registrations)
+		signedValidatorRegistrations, touchedPubkeys, userErr, err = api.processValidatorRegistrationsSSZ(resp.Registrations)
 	} else {
 		// Registrations in JSON
 		log = log.WithField("is_ssz", false)
@@ -1101,7 +1102,7 @@ func (api *RelayAPI) handleRegisterValidator(w http.ResponseWriter, req *http.Re
 		}
 
 		numTotalRegistrations = len(signedValidatorRegistrationsJSON)
-		signedValidatorRegistrations, userErr, err = api.processValidatorRegistrationJSON(signedValidatorRegistrationsJSON)
+		signedValidatorRegistrations, touchedPubkeys, userErr, err = api.processValidatorRegistrationJSON(signedValidatorRegistrationsJSON)
 	}
 
 	log.WithFields(logrus.Fields{
@@ -1116,6 +1117,13 @@ func (api *RelayAPI) handleRegisterValidator(w http.ResponseWriter, req *http.Re
 	} else if err != nil {
 		logAndReturnError(log, http.StatusBadRequest, "", err)
 		return
+	}
+
+	// Batch-touch inserted_at for cached validators that re-registered without changes
+	if len(touchedPubkeys) > 0 {
+		if err := api.datastore.TouchValidatorRegistrations(touchedPubkeys); err != nil {
+			log.WithError(err).Error("error batch-touching validator registrations")
+		}
 	}
 
 	//
@@ -3067,7 +3075,7 @@ func (api *RelayAPI) handleReadyz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (api *RelayAPI) processValidatorRegistrationJSON(regs []*common.SimpleValidatorRegistration) (newRegistrations []*builderApiV1.SignedValidatorRegistration, userErr, err error) {
+func (api *RelayAPI) processValidatorRegistrationJSON(regs []*common.SimpleValidatorRegistration) (newRegistrations []*builderApiV1.SignedValidatorRegistration, touchedPubkeys []string, userErr, err error) {
 	newRegistrations = make([]*builderApiV1.SignedValidatorRegistration, 0)
 	registrationTimestampUpperBound := time.Now().UTC().Unix() + 10 // 10 seconds from now
 
@@ -3075,9 +3083,9 @@ func (api *RelayAPI) processValidatorRegistrationJSON(regs []*common.SimpleValid
 		// Ensure a valid timestamp (not too early, and not too far in the future)
 		regTS := reg.Timestamp.Unix()
 		if regTS < int64(api.genesisInfo.Data.GenesisTime) { //nolint:gosec
-			return nil, common.ErrTimestampTooEarly, nil
+			return nil, nil, common.ErrTimestampTooEarly, nil
 		} else if regTS > registrationTimestampUpperBound {
-			return nil, common.ErrTimestampTooFarInFuture, nil
+			return nil, nil, common.ErrTimestampTooFarInFuture, nil
 		}
 
 		// Check for a previous registration timestamp and see if fields changed
@@ -3092,13 +3100,15 @@ func (api *RelayAPI) processValidatorRegistrationJSON(regs []*common.SimpleValid
 			isChangedGasLimit := cachedRegistrationData.GasLimit != reg.GasLimit
 			isNewerTimestamp := reg.Timestamp.After(cachedRegistrationData.Timestamp)
 
-			// If key fields haven't changed, can just discard without signature validation
+			// If key fields haven't changed, collect for batch touch and skip
 			if !isChangedFeeRecipient && !isChangedGasLimit {
+				touchedPubkeys = append(touchedPubkeys, string(reg.Pubkey))
 				continue
 			}
 
 			// Ensure it's not a replay of an old registration
 			if !isNewerTimestamp {
+				touchedPubkeys = append(touchedPubkeys, string(reg.Pubkey))
 				continue
 			}
 		}
@@ -3106,7 +3116,7 @@ func (api *RelayAPI) processValidatorRegistrationJSON(regs []*common.SimpleValid
 		// Before verifying signature, check if a real validator
 		isKnownValidator := api.datastore.IsKnownValidator(reg.Pubkey)
 		if !isKnownValidator {
-			return nil, fmt.Errorf("not a known validator: %s", reg.Pubkey), nil //nolint:err113
+			return nil, nil, fmt.Errorf("not a known validator: %s", reg.Pubkey), nil //nolint:err113
 		}
 
 		// Now convert to the final signed validator registration for processing
@@ -3124,10 +3134,10 @@ func (api *RelayAPI) processValidatorRegistrationJSON(regs []*common.SimpleValid
 		})
 	}
 
-	return newRegistrations, nil, nil
+	return newRegistrations, touchedPubkeys, nil, nil
 }
 
-func (api *RelayAPI) processValidatorRegistrationsSSZ(regs []*builderApiV1.SignedValidatorRegistration) (newRegistrations []*builderApiV1.SignedValidatorRegistration, userErr, err error) {
+func (api *RelayAPI) processValidatorRegistrationsSSZ(regs []*builderApiV1.SignedValidatorRegistration) (newRegistrations []*builderApiV1.SignedValidatorRegistration, touchedPubkeys []string, userErr, err error) {
 	newRegistrations = make([]*builderApiV1.SignedValidatorRegistration, 0)
 	registrationTimestampUpperBound := time.Now().UTC().Unix() + 10 // 10 seconds from now
 
@@ -3137,9 +3147,9 @@ func (api *RelayAPI) processValidatorRegistrationsSSZ(regs []*builderApiV1.Signe
 		// Ensure a valid timestamp (not too early, and not too far in the future)
 		registrationTimestamp := signedValidatorRegistration.Message.Timestamp.Unix()
 		if registrationTimestamp < int64(api.genesisInfo.Data.GenesisTime) { //nolint:gosec
-			return nil, common.ErrTimestampTooEarly, nil
+			return nil, nil, common.ErrTimestampTooEarly, nil
 		} else if registrationTimestamp > registrationTimestampUpperBound {
-			return nil, common.ErrTimestampTooFarInFuture, nil
+			return nil, nil, common.ErrTimestampTooFarInFuture, nil
 		}
 
 		// Check for a previous registration timestamp and see if fields changed
@@ -3154,13 +3164,15 @@ func (api *RelayAPI) processValidatorRegistrationsSSZ(regs []*builderApiV1.Signe
 			isChangedGasLimit := cachedRegistrationData.GasLimit != signedValidatorRegistration.Message.GasLimit
 			isNewerTimestamp := signedValidatorRegistration.Message.Timestamp.UTC().Unix() > cachedRegistrationData.Timestamp.UTC().Unix()
 
-			// If key fields haven't changed, can just discard without signature validation
+			// If key fields haven't changed, collect for batch touch and skip
 			if !isChangedFeeRecipient && !isChangedGasLimit {
+				touchedPubkeys = append(touchedPubkeys, string(pk))
 				continue
 			}
 
 			// Ensure it's not a replay of an old registration
 			if !isNewerTimestamp {
+				touchedPubkeys = append(touchedPubkeys, string(pk))
 				continue
 			}
 		}
@@ -3168,11 +3180,11 @@ func (api *RelayAPI) processValidatorRegistrationsSSZ(regs []*builderApiV1.Signe
 		// Before verifying signature, check if a real validator
 		isKnownValidator := api.datastore.IsKnownValidator(pk)
 		if !isKnownValidator {
-			return nil, fmt.Errorf("not a known validator: %s", pk), nil //nolint:err113
+			return nil, nil, fmt.Errorf("not a known validator: %s", pk), nil //nolint:err113
 		}
 
 		newRegistrations = append(newRegistrations, signedValidatorRegistration)
 	}
 
-	return newRegistrations, nil, nil
+	return newRegistrations, touchedPubkeys, nil, nil
 }
