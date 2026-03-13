@@ -1979,23 +1979,23 @@ func (api *RelayAPI) handleBuilderGetValidators(w http.ResponseWriter, req *http
 	}
 }
 
-func (api *RelayAPI) checkSubmissionFeeRecipient(w http.ResponseWriter, log *logrus.Entry, bidTrace *builderApiV1.BidTrace) (uint64, bool) {
+func (api *RelayAPI) checkSubmissionFeeRecipient(w http.ResponseWriter, log *logrus.Entry, bidTrace *builderApiV1.BidTrace) (uint64, uint64, bool) {
 	api.proposerDutiesLock.RLock()
 	slotDuty := api.proposerDutiesMap[bidTrace.Slot]
 	api.proposerDutiesLock.RUnlock()
 	if slotDuty == nil {
 		log.Warn("could not find slot duty")
 		api.RespondError(w, http.StatusBadRequest, "could not find slot duty")
-		return 0, false
+		return 0, 0, false
 	} else if !strings.EqualFold(slotDuty.Entry.Message.FeeRecipient.String(), bidTrace.ProposerFeeRecipient.String()) {
 		log.WithFields(logrus.Fields{
 			"expectedFeeRecipient": slotDuty.Entry.Message.FeeRecipient.String(),
 			"actualFeeRecipient":   bidTrace.ProposerFeeRecipient.String(),
 		}).Info("fee recipient does not match")
 		api.RespondError(w, http.StatusBadRequest, "fee recipient does not match")
-		return 0, false
+		return 0, 0, false
 	}
-	return slotDuty.Entry.Message.GasLimit, true
+	return slotDuty.Entry.Message.GasLimit, slotDuty.ValidatorIndex, true
 }
 
 func (api *RelayAPI) checkSubmissionPayloadAttrs(w http.ResponseWriter, log *logrus.Entry, submission *common.BlockSubmissionInfo) (payloadAttributesHelper, bool) {
@@ -2409,7 +2409,7 @@ func (api *RelayAPI) handleSubmitNewBlock(w http.ResponseWriter, req *http.Reque
 
 	log = log.WithField("builderIsHighPrio", builderEntry.status.IsHighPrio)
 
-	gasLimit, ok := api.checkSubmissionFeeRecipient(w, log, submission.BidTrace)
+	gasLimit, proposerIndex, ok := api.checkSubmissionFeeRecipient(w, log, submission.BidTrace)
 	if !ok {
 		return
 	}
@@ -2486,7 +2486,7 @@ func (api *RelayAPI) handleSubmitNewBlock(w http.ResponseWriter, req *http.Reque
 		}
 
 		dbStart := time.Now()
-		submissionEntry, err := api.db.SaveBuilderBlockSubmission(payload, simResult.requestErr, simResult.validationErr, receivedAt, eligibleAt, simResult.wasSimulated, savePayloadToDatabase, pf, simResult.optimisticSubmission, simResult.blockValue)
+		submissionEntry, err := api.db.SaveBuilderBlockSubmission(payload, simResult.requestErr, simResult.validationErr, receivedAt, eligibleAt, simResult.wasSimulated, savePayloadToDatabase, pf, simResult.optimisticSubmission, simResult.blockValue, proposerIndex)
 		metrics.DatabaseSaveLatencyHistogram.Record(context.Background(), float64(time.Since(dbStart).Milliseconds()))
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{

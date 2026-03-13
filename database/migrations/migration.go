@@ -19,5 +19,6 @@ var Migrations = migrate.MemoryMigrationSource{
 		Migration010PayloadAddBlobFields,
 		Migration011AddSimulatedBlockValue,
 		Migration012PayloadAddProposerIndex,
+		Migration013SubmissionAddProposerIndex,
 	},
 }

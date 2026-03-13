@@ -111,6 +111,7 @@ func BuilderSubmissionEntryToBidTraceV2WithTimestampJSON(payload *BuilderBlockSu
 			Value:                payload.Value,
 			NumTx:                payload.NumTx,
 			BlockNumber:          payload.BlockNumber,
+			ProposerIndex:        payload.ProposerIndex,
 		},
 	}
 }

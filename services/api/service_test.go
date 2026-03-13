@@ -829,7 +829,7 @@ func TestCheckSubmissionFeeRecipient(t *testing.T) {
 			log := logrus.NewEntry(logger)
 			submission, err := common.GetBlockSubmissionInfo(tc.payload)
 			require.NoError(t, err)
-			gasLimit, ok := backend.relay.checkSubmissionFeeRecipient(w, log, submission.BidTrace)
+			gasLimit, _, ok := backend.relay.checkSubmissionFeeRecipient(w, log, submission.BidTrace)
 			require.Equal(t, tc.expectGasLimit, gasLimit)
 			require.Equal(t, tc.expectOk, ok)
 		})
